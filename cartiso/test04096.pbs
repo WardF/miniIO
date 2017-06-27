@@ -1,0 +1,68 @@
+#!/bin/bash
+#PBS -A ARLAP96070PET
+#PBS -j oe
+#PBS -q debug
+#PBS -l walltime=0:30:00
+#PBS -l select=128:ncpus=32:mpiprocs=32
+#PBS -N cartiso
+
+cd $PBS_O_WORKDIR
+w=$WORKDIR/miniIO2
+mkdir -p $w
+cp ./cartiso $w
+cd $w
+strc=166
+strs=8388608
+lfs setstripe -c $strc -S $strs .
+echo stripe $strc $strs
+#export MPICH_MPIIO_HINTS=*.h5:striping_factor=128:romio_no_indep_rw=true
+export MPICH_MPIIO_HINTS=*.h5:striping_factor=$strc:cb_nodes=128:striping_unit=$strs
+#export MPICH_MPIIO_HINTS_DISPLAY=1
+
+
+# options: --pvti --pvtp --adiosfull POSIX|MPI|MPI_LUSTRE|MPI_AGGREGATE|PHDF5
+#output1="--hdf5i"        # First run only
+output2="--hdf5p"        # Subsequent runs
+cleanup=yes   # Comment me to disable
+
+if [ -n "$output2" ]; then     # Special iso settings
+    strc=128
+    strs=4194304
+    export MPICH_MPIIO_HINTS=*.h5:striping_factor=$strc:cb_nodes=128:striping_unit=$strs
+fi
+
+p=16
+nc=$(($p * $p * $p))
+tsk="$p $p $p"
+fq="$p $p $p"
+s=$(($p * 256))  
+sg=$(bc -ql <<< ".96 / $p")
+sge=$(bc -ql <<< "1.92 / $p")
+
+echo "tsk=$tsk fq=$fq s=$s sg=$sg sge=$sge output1=$output1 output2=$output2 hints=$MPICH_MPIIO_HINTS"
+
+if [ -n "$output1" ]; then
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+        --centertask --freq $fq --tsteps 11 --sin2gauss $output1
+fi
+
+if [ -n "$output2" ]; then
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+        --centertask --freq $fq --tsteps 11 --sin2gauss $output2
+
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+        --centertask --freq $fq --tsteps 41 --tstart 11 --gaussmove $output2
+
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+        --centertask --freq $fq --tsteps 11 --tstart 52 --gaussresize \
+        --backward --sigmaend $sge $sge $sge $output2
+
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sge $sge $sge \
+        --centertask --freq $fq --tsteps 41 --tstart 63 --gaussmove --backward $output2
+fi
+
+if [ -n "$cleanup" ]; then
+    cd $PBS_O_WORKDIR
+    rm -r $w
+fi
+

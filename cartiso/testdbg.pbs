@@ -1,0 +1,47 @@
+#!/bin/bash
+#PBS -A AFOSR22142WH2
+#PBS -j oe
+#PBS -q debug
+#PBS -l walltime=1:00:00
+#PBS -l select=128:ncpus=32:mpiprocs=32
+#PBS -N cartiso
+
+cd $PBS_O_WORKDIR
+mkdir -p $WORKDIR/miniIO
+cp ./cartiso $WORKDIR/miniIO
+cd $WORKDIR/miniIO
+
+# options: --pvti --pvtp --adiosfull POSIX|MPI|MPI_LUSTRE|MPI_AGGREGATE|PHDF5
+output1="--adiosfull POSIX"        # First run only
+#output1="--pvti"        # First run only
+#output2="--pvtp"        # Subsequent runs
+
+p=16
+nc=$(($p * $p * $p))
+tsk="$p $p $p"
+fq="$p $p $p"
+s=$(($p * 256))  
+sg=$(bc -ql <<< ".96 / $p")
+sge=$(bc -ql <<< "1.92 / $p")
+
+echo "tsk=$tsk fq=$fq s=$s sg=$sg sge=$sge output1=$output1 output2=$output2"
+
+if [ -n "$output1" ]; then
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+        --centertask --freq $fq --tsteps 2 --sin2gauss $output1
+fi
+
+if [ -n "$output2" ]; then
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+        --centertask --freq $fq --tsteps 11 --sin2gauss $output2
+
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+        --centertask --freq $fq --tsteps 41 --tstart 11 --gaussmove $output2
+
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+        --centertask --freq $fq --tsteps 11 --tstart 52 --gaussresize \
+        --backward --sigmaend $sge $sge $sge $output2
+
+    aprun -n $nc ./cartiso --tasks $tsk --size $s $s $s --sigma $sge $sge $sge \
+        --centertask --freq $fq --tsteps 41 --tstart 63 --gaussmove --backward $output2
+fi

@@ -47,7 +47,7 @@ endif
 
 ### if NC_DIR set then enable netCDF
 ifdef NC_DIR
-  LIBS += $(NC_DIR)/lib/libnetcdf.a 
+  LIBS += $(NC_DIR)/lib/libnetcdf.a -L/opt/cray/parallel-netcdf/1.7.0/INTEL/15.0/lib/ -lpnetcdf
   INCLUDE += -I$(NC_DIR)/include
   OBJS += nci.o ncp.o
   SRCS += nci.c ncp.c

@@ -1,0 +1,38 @@
+#!/bin/bash
+#PBS -A ARLAP96070PET
+#PBS -j oe
+#PBS -q debug
+#PBS -l walltime=0:30:00
+#PBS -l select=2:ncpus=32:mpiprocs=32
+#PBS -N cartiso
+
+cd $PBS_O_WORKDIR
+cp ./cartiso $WORKDIR/miniIO
+cd $WORKDIR/miniIO
+
+#output="--pvtp"
+#output="--pvti"
+output="--pvti --pvtp"
+
+p=4
+tsk="$p $p $p"
+fq="$p $p $p"
+s=$(($p * 256))  
+sg=$(bc -ql <<< ".64 / $p")
+sge=$(bc -ql <<< "1.1 / $p")
+
+echo "tsk=$tsk fq=$fq s=$s sg=$sg sge=$sge"
+
+aprun -n 64 ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+    --centertask --freq $fq --tsteps 20 --sin2gauss $output
+
+aprun -n 64 ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+    --centertask --freq $fq --tsteps 40 --tstart 20 --gaussmove $output
+
+aprun -n 64 ./cartiso --tasks $tsk --size $s $s $s --sigma $sg $sg $sg \
+    --centertask --freq $fq --tsteps 20 --tstart 60 --gaussresize \
+    --backward --sigmaend $sge $sge $sge $output
+
+aprun -n 64 ./cartiso --tasks $tsk --size $s $s $s --sigma $sge $sge $sge \
+    --centertask --freq $fq --tsteps 40 --tstart 80 --gaussmove --backward $output
+
