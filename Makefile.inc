@@ -63,7 +63,7 @@ endif
 
 ### if NC_DIR is set then enable NetCDF-C ###
 ifdef NC_DIR
-   LIBS += $(NC_DIR)/lib/libnetcdf.a $(NC_DIR)/lib/libhdf5_hl.a $(NC_DIR)/lib/libhdf5.a -lz -ldl
+   LIBS += $(NC_DIR)/lib/libnetcdf.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5.a -lz -ldl
    INCLUDE += -I$(NC_DIR)/include
    CFLAGS += -DHAS_NC
 endif
