@@ -471,7 +471,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef HAS_NC
-        nc_set_log_level(ncloglevel);
+	//        nc_set_log_level(ncloglevel);
 
         if(ncout) {
           if(rank == 0) {
